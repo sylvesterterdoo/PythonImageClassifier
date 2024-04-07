@@ -3,7 +3,7 @@ import requests
 import matplotlib.pyplot as plt
 import datetime
 
-def get_cryptocurrency_price_history(crypto_name):
+def get_cryptocurrency_price_history(crypto_name, days):
     # Base URL for CoinGecko API
     base_url = "https://api.coingecko.com/api/v3"
 
@@ -13,7 +13,7 @@ def get_cryptocurrency_price_history(crypto_name):
     # Parameters to pass in the request
     params = {
         "vs_currency": "usd",      # Currency for price conversion (USD in this case)
-        "days": 365                # Number of days of historical data (1 year)
+        "days": days               # Number of days of historical data
     }
 
     try:
@@ -29,43 +29,82 @@ def get_cryptocurrency_price_history(crypto_name):
             prices = [entry[1] for entry in data["prices"]]
             timestamps = [datetime.datetime.fromtimestamp(entry[0] / 1000) for entry in data["prices"]]
 
-            # Calculate max and min prices
-            max_price = max(prices)
-            min_price = min(prices)
-
-            # Find corresponding timestamps for max and min prices
-            max_timestamp = timestamps[prices.index(max_price)]
-            min_timestamp = timestamps[prices.index(min_price)]
-
-            # Print max and min prices along with corresponding timestamps
-            st.write(f"Maximum price of {crypto_name.capitalize()} over the last year: ${max_price:.2f} on {max_timestamp.date()}")
-            st.write(f"Minimum price of {crypto_name.capitalize()} over the last year: ${min_price:.2f} on {min_timestamp.date()}")
-
-            # Plot the cryptocurrency price history
-            fig, ax = plt.subplots(figsize=(12, 6))
-            ax.plot(timestamps, prices, label=f"{crypto_name.capitalize()} Price (USD)")
-            ax.set_title(f"{crypto_name.capitalize()} Price Over the Last Year")
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Price (USD)")
-            ax.grid(True)
-            ax.legend()
-            st.pyplot(fig)
+            return prices, timestamps
         else:
-            st.write("No data returned from the API.")
+            return None, None
 
     except requests.exceptions.RequestException as e:
         st.write(f"Error occurred: {e}")
+        return None, None
+
+def plot_comparison_chart(prices1, timestamps1, prices2, timestamps2, crypto_name1, crypto_name2):
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    # Plot cryptocurrency price data
+    if prices1 and timestamps1:
+        ax.plot(timestamps1, prices1, label=f"{crypto_name1.capitalize()} Price (USD)")
+
+    if prices2 and timestamps2:
+        ax.plot(timestamps2, prices2, label=f"{crypto_name2.capitalize()} Price (USD)")
+
+    # Set plot title, labels, and legend
+    ax.set_title(f"{crypto_name1.capitalize()} vs {crypto_name2.capitalize()} Price Comparison")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Price (USD)")
+    ax.grid(True)
+    ax.legend()
+
+    return fig
 
 # Main Streamlit app
 def main():
-    st.title("Cryptocurrency Price History Viewer")
+    st.title("Cryptocurrency Price Comparison")
 
-    # Input for cryptocurrency name
-    crypto_name = st.text_input("Enter cryptocurrency name (e.g., bitcoin, ethereum)")
+    # Sidebar selection for comparison
+    page = st.sidebar.selectbox("Select Page", ["Single Coin", "Coin Comparison"])
 
-    if crypto_name:
-        # Call function to get cryptocurrency price history and plot
-        get_cryptocurrency_price_history(crypto_name.lower())
+    if page == "Single Coin":
+        crypto_name = st.text_input("Enter cryptocurrency name (e.g., bitcoin, ethereum)")
+
+        if crypto_name:
+            days = st.sidebar.selectbox("Select timeframe (days)", [7, 30, 365], index=2)
+            prices, timestamps = get_cryptocurrency_price_history(crypto_name.lower(), days)
+
+            if prices and timestamps:
+                # Calculate max and min prices
+                max_price = max(prices)
+                min_price = min(prices)
+                max_timestamp = timestamps[prices.index(max_price)]
+                min_timestamp = timestamps[prices.index(min_price)]
+
+                # Print max and min prices along with corresponding timestamps
+                st.write(f"Maximum price of {crypto_name.capitalize()} over the last {days} days: ${max_price:.2f} on {max_timestamp.date()}")
+                st.write(f"Minimum price of {crypto_name.capitalize()} over the last {days} days: ${min_price:.2f} on {min_timestamp.date()}")
+
+                # Plot cryptocurrency price history
+                fig, ax = plt.subplots(figsize=(12, 6))
+                ax.plot(timestamps, prices, label=f"{crypto_name.capitalize()} Price (USD)")
+                ax.set_title(f"{crypto_name.capitalize()} Price Over the Last {days} Days")
+                ax.set_xlabel("Date")
+                ax.set_ylabel("Price (USD)")
+                ax.grid(True)
+                ax.legend()
+                st.pyplot(fig)
+
+    elif page == "Coin Comparison":
+        crypto_name1 = st.text_input("Enter first cryptocurrency name (e.g., bitcoin, ethereum)")
+        crypto_name2 = st.text_input("Enter second cryptocurrency name (e.g., bitcoin, ethereum)")
+
+        if crypto_name1 and crypto_name2:
+            days = st.sidebar.selectbox("Select timeframe (days)", [7, 30, 365], index=2)
+            prices1, timestamps1 = get_cryptocurrency_price_history(crypto_name1.lower(), days)
+            prices2, timestamps2 = get_cryptocurrency_price_history(crypto_name2.lower(), days)
+
+            if prices1 and timestamps1 and prices2 and timestamps2:
+                # Plot comparison chart
+                fig = plot_comparison_chart(prices1, timestamps1, prices2, timestamps2, crypto_name1, crypto_name2)
+                st.pyplot(fig)
 
 if __name__ == "__main__":
     main()
