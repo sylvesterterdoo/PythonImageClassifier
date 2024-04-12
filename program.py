@@ -5,31 +5,27 @@ import datetime
 from PIL import Image
 import numpy as np
 from tensorflow.keras.models import load_model
+import time
 
+# Function to retrieve cryptocurrency price history for a specific number of days
 def get_cryptocurrency_price_history(crypto_name, days):
-    # Base URL for CoinGecko API
     base_url = "https://api.coingecko.com/api/v3"
     endpoint = f"/coins/{crypto_name}/market_chart"
 
-    # Parameters for the request
     params = {
-        "vs_currency": "usd",  # Currency for price conversion (USD in this case)
-        "days": days  # Number of days of historical data
+        "vs_currency": "usd",
+        "days": days
     }
 
     try:
-        # Make GET request to CoinGecko API
         response = requests.get(base_url + endpoint, params=params)
-        response.raise_for_status()  # Raise an exception for bad response status
+        response.raise_for_status()
 
-        # Parse response data as JSON
         data = response.json()
 
         if data:
-            # Extract prices and timestamps from the response
             prices = [entry[1] for entry in data["prices"]]
             timestamps = [datetime.datetime.fromtimestamp(entry[0] / 1000) for entry in data["prices"]]
-
             return prices, timestamps
         else:
             return None, None
@@ -38,18 +34,44 @@ def get_cryptocurrency_price_history(crypto_name, days):
         st.write(f"Error occurred: {e}")
         return None, None
 
+# Function to retrieve cryptocurrency price history for five years (multiple requests)
+#def get_cryptocurrency_price_history_five_years(crypto_name, days_per_request, num_years=5):
+#    all_prices = []
+#    all_timestamps = []
+#
+#    for _ in range(num_years):
+#        prices, timestamps = get_cryptocurrency_price_history(crypto_name, days_per_request)
+#        if prices and timestamps:
+#            all_prices.extend(prices)
+#            all_timestamps.extend(timestamps)
+#
+#    return all_prices, all_timestamps
+#
+def get_cryptocurrency_price_history_five_years(crypto_name, days_per_request, num_years=5):
+    all_prices = []
+    all_timestamps = []
+
+    for _ in range(num_years):
+        prices, timestamps = get_cryptocurrency_price_history(crypto_name, days_per_request)
+        if prices and timestamps:
+            all_prices.extend(prices)
+            all_timestamps.extend(timestamps)
+
+        # Introduce a delay of 1 second between consecutive API requests
+        time.sleep(1)
+
+    return all_prices, all_timestamps
+
+# Function to plot comparison chart for cryptocurrency prices
 def plot_comparison_chart(prices1, timestamps1, prices2, timestamps2, crypto_name1, crypto_name2):
-    # Create a figure and axis
     fig, ax = plt.subplots(figsize=(12, 6))
 
-    # Plot cryptocurrency price data
     if prices1 and timestamps1:
         ax.plot(timestamps1, prices1, label=f"{crypto_name1.capitalize()} Price (USD)")
 
     if prices2 and timestamps2:
         ax.plot(timestamps2, prices2, label=f"{crypto_name2.capitalize()} Price (USD)")
 
-    # Set plot title, labels, and legend
     ax.set_title(f"{crypto_name1.capitalize()} vs {crypto_name2.capitalize()} Price Comparison")
     ax.set_xlabel("Date")
     ax.set_ylabel("Price (USD)")
@@ -58,63 +80,48 @@ def plot_comparison_chart(prices1, timestamps1, prices2, timestamps2, crypto_nam
 
     return fig
 
+# Function to predict digit from uploaded image
 def predict_digit(image):
-    # Load the trained model
-    # model = load_model('pretrained_model.h5')
     model = load_model('numberclassifier.keras')
 
-    # Extract the alpha channel from the image
     if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
         r, g, b, a = image.split()
     else:
-        # Convert image to RGBA mode to handle transparency
         image = image.convert('RGBA')
         r, g, b, a = image.split()
 
-    # Create a new image containing only the alpha channel
     alpha_image = Image.merge('L', (a,))
-
-    # Resize the alpha channel image to 28x28
     alpha_image = alpha_image.resize((28, 28))
-
-    # Convert the alpha channel image to numpy array and normalize pixel values
     image_array = np.array(alpha_image) / 255.0
-
-    # Expand dimensions to match model input shape (add batch dimension)
     image_array = np.expand_dims(image_array, axis=0)
 
-    # Make prediction using the loaded model
     prediction = model.predict(image_array)
     predicted_digit = np.argmax(prediction)
 
     return predicted_digit
 
-
 def main():
-    st.title("Cryptocurrency Price Comparison")
+    st.title("Cryptocurrency and Image Classifier App")
 
-    # Sidebar selection for comparison
     page = st.sidebar.selectbox("Select Page", ["Single Coin", "Coin Comparison", "Image Classifier"])
 
     if page == "Single Coin":
+        st.header("Cryptocurrency Price Analysis")
         crypto_name = st.text_input("Enter cryptocurrency name (e.g., bitcoin, ethereum)")
 
         if crypto_name:
-            days = st.sidebar.selectbox("Select timeframe (days)", [7, 30, 365], index=2)
+            days = st.sidebar.selectbox("Select timeframe (days)", [30, 365], index=1)
             prices, timestamps = get_cryptocurrency_price_history(crypto_name.lower(), days)
 
             if prices and timestamps:
-                # Calculate max and min prices
                 max_price = max(prices)
                 min_price = min(prices)
                 max_timestamp = timestamps[prices.index(max_price)]
                 min_timestamp = timestamps[prices.index(min_price)]
 
-                # Print max and min prices along with corresponding timestamps
                 st.write(f"Maximum price of {crypto_name.capitalize()} over the last {days} days: ${max_price:.2f} on {max_timestamp.date()}")
                 st.write(f"Minimum price of {crypto_name.capitalize()} over the last {days} days: ${min_price:.2f} on {min_timestamp.date()}")
 
-                # Plot cryptocurrency price history
                 fig, ax = plt.subplots(figsize=(12, 6))
                 ax.plot(timestamps, prices, label=f"{crypto_name.capitalize()} Price (USD)")
                 ax.set_title(f"{crypto_name.capitalize()} Price Over the Last {days} Days")
@@ -125,16 +132,20 @@ def main():
                 st.pyplot(fig)
 
     elif page == "Coin Comparison":
+        st.header("Cryptocurrency Price Comparison")
         crypto_name1 = st.text_input("Enter first cryptocurrency name (e.g., bitcoin, ethereum)")
         crypto_name2 = st.text_input("Enter second cryptocurrency name (e.g., bitcoin, ethereum)")
 
         if crypto_name1 and crypto_name2:
-            days = st.sidebar.selectbox("Select timeframe (days)", [7, 30, 365], index=2)
-            prices1, timestamps1 = get_cryptocurrency_price_history(crypto_name1.lower(), days)
-            prices2, timestamps2 = get_cryptocurrency_price_history(crypto_name2.lower(), days)
+            days = st.sidebar.selectbox("Select timeframe (days)", [7, 30, 365, 1825], index=2)
+            if days == 1825:
+                prices1, timestamps1 = get_cryptocurrency_price_history_five_years(crypto_name1.lower(), 100, num_years=5)
+                prices2, timestamps2 = get_cryptocurrency_price_history_five_years(crypto_name2.lower(), 100, num_years=5)
+            else:
+                prices1, timestamps1 = get_cryptocurrency_price_history(crypto_name1.lower(), days)
+                prices2, timestamps2 = get_cryptocurrency_price_history(crypto_name2.lower(), days)
 
             if prices1 and timestamps1 and prices2 and timestamps2:
-                # Plot comparison chart
                 fig = plot_comparison_chart(prices1, timestamps1, prices2, timestamps2, crypto_name1, crypto_name2)
                 st.pyplot(fig)
 
@@ -142,16 +153,13 @@ def main():
         st.title('Digit Classifier')
         st.write('Upload an image of a digit (0-9) to classify')
 
-        # File uploader widget
         uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
         if uploaded_file is not None:
             try:
-                # Display the uploaded image
                 image = Image.open(uploaded_file)
                 st.image(image, caption='Uploaded Image', use_column_width=True)
 
-                # Predict the digit in the uploaded image
                 predicted_digit = predict_digit(image)
                 st.write(f'Predicted Digit: {predicted_digit}')
 
