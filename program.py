@@ -60,12 +60,34 @@ def plot_comparison_chart(prices1, timestamps1, prices2, timestamps2, crypto_nam
 
 def predict_digit(image):
     # Load the trained model
-    model = load_model('pretrained_model.h5')
+    # model = load_model('pretrained_model.h5')
+    model = load_model('numberclassifier.keras')
 
-    # Preprocess the image for prediction
-    image = image.convert('L').resize((28, 28))
-    image_array = np.array(image) / 255.0
+    # # Preprocess the image for prediction
+    # image = image.convert('L').resize((28, 28))
+    # image_array = np.array(image) / 255.0
+    # image_array = np.expand_dims(image_array, axis=0)
+
+    # Extract the alpha channel from the image
+    if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
+        r, g, b, a = image.split()
+    else:
+        # Convert image to RGBA mode to handle transparency
+        image = image.convert('RGBA')
+        r, g, b, a = image.split()
+
+    # Create a new image containing only the alpha channel
+    alpha_image = Image.merge('L', (a,))
+
+    # Resize the alpha channel image to 28x28
+    alpha_image = alpha_image.resize((28, 28))
+
+    # Convert the alpha channel image to numpy array and normalize pixel values
+    image_array = np.array(alpha_image) / 255.0
+
+    # Expand dimensions to match model input shape (add batch dimension)
     image_array = np.expand_dims(image_array, axis=0)
+
 
     # Make prediction using the loaded model
     prediction = model.predict(image_array)
