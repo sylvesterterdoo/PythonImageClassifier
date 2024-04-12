@@ -2,21 +2,19 @@ import streamlit as st
 import requests
 import matplotlib.pyplot as plt
 import datetime
-from tensorflow.keras.models import load_model
-import numpy as np
 from PIL import Image
+import numpy as np
+from tensorflow.keras.models import load_model
 
 def get_cryptocurrency_price_history(crypto_name, days):
     # Base URL for CoinGecko API
     base_url = "https://api.coingecko.com/api/v3"
-
-    # Endpoint to get cryptocurrency price history
     endpoint = f"/coins/{crypto_name}/market_chart"
 
-    # Parameters to pass in the request
+    # Parameters for the request
     params = {
-        "vs_currency": "usd",      # Currency for price conversion (USD in this case)
-        "days": days               # Number of days of historical data
+        "vs_currency": "usd",  # Currency for price conversion (USD in this case)
+        "days": days  # Number of days of historical data
     }
 
     try:
@@ -60,7 +58,22 @@ def plot_comparison_chart(prices1, timestamps1, prices2, timestamps2, crypto_nam
 
     return fig
 
-# Main Streamlit app
+def predict_digit(image):
+    # Load the trained model
+    model = load_model('pretrained_model.h5')
+
+    # Preprocess the image for prediction
+    image = image.convert('L').resize((28, 28))
+    image_array = np.array(image) / 255.0
+    image_array = np.expand_dims(image_array, axis=0)
+
+    # Make prediction using the loaded model
+    prediction = model.predict(image_array)
+    predicted_digit = np.argmax(prediction)
+
+    return predicted_digit
+
+
 def main():
     st.title("Cryptocurrency Price Comparison")
 
@@ -128,24 +141,6 @@ def main():
 
             except Exception as e:
                 st.write(f"Error predicting digit: {e}")
-
-
-def predict_digit(image):
-    # Load the trained model
-    model = load_model('pretrained_model.h5')
-
-    # Preprocess the image for prediction
-    image = image.convert('L').resize((28, 28))
-    image_array = np.array(image) / 255.0
-    image_array = np.expand_dims(image_array, axis=0)
-
-    # Make prediction using the loaded model
-    prediction = model.predict(image_array)
-    predicted_digit = np.argmax(prediction)
-
-    return predicted_digit
-
-
 
 if __name__ == "__main__":
     main()
