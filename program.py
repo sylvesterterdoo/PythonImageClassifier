@@ -2,6 +2,9 @@ import streamlit as st
 import requests
 import matplotlib.pyplot as plt
 import datetime
+from tensorflow.keras.models import load_model
+import numpy as np
+from PIL import Image
 
 def get_cryptocurrency_price_history(crypto_name, days):
     # Base URL for CoinGecko API
@@ -112,46 +115,36 @@ def main():
 
         # File uploader widget
         uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
-        processImage(uploaded_file)
+
+        if uploaded_file is not None:
+            try:
+                # Display the uploaded image
+                image = Image.open(uploaded_file)
+                st.image(image, caption='Uploaded Image', use_column_width=True)
+
+                # Predict the digit in the uploaded image
+                predicted_digit = predict_digit(image)
+                st.write(f'Predicted Digit: {predicted_digit}')
+
+            except Exception as e:
+                st.write(f"Error predicting digit: {e}")
 
 
+def predict_digit(image):
+    # Load the trained model
+    model = load_model('pretrained_model.h5')
 
-def processImage(uploaded_file):
-    if uploaded_file is not None:
-        try:
-            # Load the pre-trained model
-            model = tf.keras.models.load_model('pretrained_model.h5')
+    # Preprocess the image for prediction
+    image = image.convert('L').resize((28, 28))
+    image_array = np.array(image) / 255.0
+    image_array = np.expand_dims(image_array, axis=0)
 
-            # Function to preprocess the image for model prediction
-            def preprocess_image(image):
-                # Resize the image to 28x28 and convert to grayscale
-                image = image.convert('L').resize((28, 28))
-                # Normalize the pixel values to range [0, 1]
-                image_array = np.array(image) / 255.0
-                # Expand dimensions to match model input shape (add batch dimension)
-                image_array = np.expand_dims(image_array, axis=0)
-                return image_array
+    # Make prediction using the loaded model
+    prediction = model.predict(image_array)
+    predicted_digit = np.argmax(prediction)
 
-            # Function to predict the digit from the image
-            def predict_digit(image):
-                # Preprocess the image
-                processed_image = preprocess_image(image)
-                # Make prediction using the loaded model
-                prediction = model.predict(processed_image)
-                # Get the predicted digit (index of the maximum probability)
-                predicted_digit = np.argmax(prediction)
-                return predicted_digit
+    return predicted_digit
 
-            # Display the uploaded image
-            image = Image.open(uploaded_file)
-            st.image(image, caption='Uploaded Image', use_column_width=True)
-
-            # Classify the digit in the uploaded image
-            predicted_digit = predict_digit(image)
-            st.write(f'Predicted Digit: {predicted_digit}')
-
-        except Exception as e:
-            st.write(f"Error loading model: {e}")
 
 
 if __name__ == "__main__":
