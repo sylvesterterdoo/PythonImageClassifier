@@ -63,11 +63,6 @@ def predict_digit(image):
     # model = load_model('pretrained_model.h5')
     model = load_model('numberclassifier.keras')
 
-    # # Preprocess the image for prediction
-    # image = image.convert('L').resize((28, 28))
-    # image_array = np.array(image) / 255.0
-    # image_array = np.expand_dims(image_array, axis=0)
-
     # Extract the alpha channel from the image
     if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
         r, g, b, a = image.split()
@@ -87,7 +82,6 @@ def predict_digit(image):
 
     # Expand dimensions to match model input shape (add batch dimension)
     image_array = np.expand_dims(image_array, axis=0)
-
 
     # Make prediction using the loaded model
     prediction = model.predict(image_array)
